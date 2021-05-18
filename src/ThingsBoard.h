@@ -123,12 +123,17 @@ public:
 template <size_t PayloadSize, size_t MaxFieldsAmt, typename Logger>
 class ThingsBoardSized
 {
-public:
+public:  
   // Initializes ThingsBoardSized class with network client.
+  inline ThingsBoardSized() { }
   inline ThingsBoardSized(Client &client) :m_client(client) { }
 
   // Destroys ThingsBoardSized class with network client.
   inline ~ThingsBoardSized() { }
+
+  inline void setClient(Client &client) {
+    m_client.setClient(client);
+  }
 
   // Connects to the specified ThingsBoard server and port.
   // Access token is used to authenticate a client.
@@ -139,7 +144,21 @@ public:
     }
     this->RPC_Unsubscribe(); // Cleanup any subscriptions
     m_client.setServer(host, port);
-    return m_client.connect("TbDev", access_token, NULL);
+    return m_client.connect(access_token, access_token, NULL);
+  }
+
+  bool connect(IPAddress ip, const char *access_token, int port = 1883) {
+    if (!ip || !access_token) {
+      return false;
+    }
+    this->RPC_Unsubscribe(); // Cleanup any subscriptions
+    m_client.setServer(ip, port);
+    return m_client.connect(access_token, access_token, NULL);
+  }
+
+  void state(){
+    Serial.print(F("failed, rc="));
+    Serial.println(m_client.state());
   }
 
   // Disconnects from ThingsBoard. Returns true on success.
@@ -190,6 +209,10 @@ public:
     return m_client.publish("v1/devices/me/telemetry", json);
   }
 
+  inline bool sendTelemetryJson(const char *json, size_t n) {
+    return m_client.publish("v1/devices/me/telemetry", json, n);
+  }
+
   //----------------------------------------------------------------------------
   // Attribute API
 
@@ -223,6 +246,25 @@ public:
     return m_client.publish("v1/devices/me/attributes", json);
   }
 
+  inline bool attributesRequestTopic(const char *json) {
+    return m_client.publish("v1/devices/me/attributes/request/2", json);
+  }
+
+  inline bool subscribeAttributesResponseTopic() {
+    return m_client.subscribe("v1/devices/me/attributes/response/+");    
+  }
+
+  inline bool subscribe(const char* name){
+    return m_client.subscribe(name);
+  }
+  
+  #if defined(ESP8266) || defined(ESP32)
+  inline bool callback(MQTT_CALLBACK_SIGNATURE){
+    Serial.println(F("Set callback"));    
+    m_client.setCallback(callback);
+  }
+  #endif
+
   //----------------------------------------------------------------------------
   // Server-side RPC API
 
@@ -240,6 +282,7 @@ public:
     }
 
     ThingsBoardSized::m_subscribedInstance = this;
+
     for (size_t i = 0; i < callbacks_size; ++i) {
       m_rpcCallbacks[i] = callbacks[i];
     }
@@ -383,7 +426,7 @@ private:
     if (!ThingsBoardSized::m_subscribedInstance) {
       return;
     }
-
+  
     ThingsBoardSized::m_subscribedInstance->process_message(topic, payload, length);
   }
 };
