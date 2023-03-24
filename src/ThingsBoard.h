@@ -7,69 +7,71 @@
 #ifndef ThingsBoard_h
 #define ThingsBoard_h
 
-// #ifndef (ESP8266 || ESP32)
-// #include <ArduinoHttpClient.h>
-// #endif
+#if !defined(ESP8266) && !defined(ESP32)
+#include <ArduinoHttpClient.h>
+#endif
 
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include "ArduinoJson/Polyfills/type_traits.hpp"
 
-#define Default_Payload 64
+#define Default_Payload 1024
 #define Default_Fields_Amt 8
 
 class ThingsBoardDefaultLogger;
 
 // Telemetry record class, allows to store different data using common interface.
-class Telemetry {
+class Telemetry
+{
   // template <size_t PayloadSize = Default_Payload,
   //           size_t MaxFieldsAmt = Default_Fields_Amt,
   //           typename Logger = ThingsBoardDefaultLogger>
-  template<size_t PayloadSize, size_t MaxFieldsAmt, typename Logger>
+  template <size_t PayloadSize, size_t MaxFieldsAmt, typename Logger>
   friend class ThingsBoardSized;
 #ifndef ESP8266
   // template <size_t PayloadSize = Default_Payload,
   //           size_t MaxFieldsAmt = Default_Fields_Amt,
   //           typename Logger = ThingsBoardDefaultLogger>
-  template<size_t PayloadSize, size_t MaxFieldsAmt, typename Logger>
+  template <size_t PayloadSize, size_t MaxFieldsAmt, typename Logger>
   friend class ThingsBoardHttpSized;
 #endif
 public:
   inline Telemetry()
-    :m_type(TYPE_NONE), m_key(NULL), m_value() { }
+      : m_type(TYPE_NONE), m_key(NULL), m_value() {}
 
   // Constructs telemetry record from integer value.
   // EnableIf trick is required to overcome ambiguous float/integer conversion
-  template<
+  template <
       typename T,
-      typename = ARDUINOJSON_NAMESPACE::enable_if<ARDUINOJSON_NAMESPACE::is_integral<T>::value>
-  >
+      typename = ARDUINOJSON_NAMESPACE::enable_if<ARDUINOJSON_NAMESPACE::is_integral<T>::value>>
   inline Telemetry(const char *key, T val)
-  :m_type(TYPE_INT), m_key(key), m_value()   { m_value.integer = val; }
+      : m_type(TYPE_INT), m_key(key), m_value() { m_value.integer = val; }
 
   // Constructs telemetry record from boolean value.
   inline Telemetry(const char *key, bool val)
-  :m_type(TYPE_BOOL), m_key(key), m_value()  { m_value.boolean = val; }
+      : m_type(TYPE_BOOL), m_key(key), m_value() { m_value.boolean = val; }
 
   // Constructs telemetry record from float value.
   inline Telemetry(const char *key, float val)
-  :m_type(TYPE_REAL), m_key(key), m_value()  { m_value.real = val; }
+      : m_type(TYPE_REAL), m_key(key), m_value() { m_value.real = val; }
 
   // Constructs telemetry record from string value.
   inline Telemetry(const char *key, const char *val)
-  :m_type(TYPE_STR), m_key(key), m_value()   { m_value.str = val; }
+      : m_type(TYPE_STR), m_key(key), m_value() { m_value.str = val; }
 
 private:
   // Data container
-  union data {
-    const char  *str;
-    bool        boolean;
-    int         integer;
-    float       real;
+  union data
+  {
+    const char *str;
+    bool boolean;
+    int integer;
+    float real;
   };
 
   // Data type inside a container
-  enum dataType {
+  enum dataType
+  {
     TYPE_NONE,
     TYPE_BOOL,
     TYPE_INT,
@@ -77,9 +79,9 @@ private:
     TYPE_STR,
   };
 
-  dataType     m_type;  // Data type flag
-  const char   *m_key;  // Data key
-  data         m_value; // Data value
+  dataType m_type;   // Data type flag
+  const char *m_key; // Data key
+  data m_value;      // Data value
 
   // Serializes key-value pair in a generic way.
   bool serializeKeyval(JsonVariant &jsonObj) const;
@@ -93,26 +95,27 @@ using RPC_Response = Telemetry;
 using RPC_Data = JsonVariant;
 
 // RPC callback wrapper
-class RPC_Callback {
+class RPC_Callback
+{
   template <size_t PayloadSize, size_t MaxFieldsAmt, typename Logger>
   friend class ThingsBoardSized;
-public:
 
+public:
   // RPC callback signature
   using processFn = RPC_Response (*)(const RPC_Data &data);
 
   // Constructs empty callback
   inline RPC_Callback()
-    :m_name(), m_cb(NULL)                {  }
+      : m_name(), m_cb(NULL) {}
 
   // Constructs callback that will be fired upon a RPC request arrival with
   // given method name
   inline RPC_Callback(const char *methodName, processFn cb)
-    :m_name(methodName), m_cb(cb)        {  }
+      : m_name(methodName), m_cb(cb) {}
 
 private:
-  const char  *m_name;    // Method name
-  processFn   m_cb;       // Callback to call
+  const char *m_name; // Method name
+  processFn m_cb;     // Callback to call
 };
 
 class ThingsBoardDefaultLogger
@@ -123,61 +126,72 @@ public:
 
 // ThingsBoardSized client class
 // template <size_t PayloadSize, size_t MaxFieldsAmt, typename Logger>
-template<size_t PayloadSize = Default_Payload,
-         size_t MaxFieldsAmt = Default_Fields_Amt,
-         typename Logger = ThingsBoardDefaultLogger>
+template <size_t PayloadSize = Default_Payload,
+          size_t MaxFieldsAmt = Default_Fields_Amt,
+          typename Logger = ThingsBoardDefaultLogger>
 class ThingsBoardSized
 {
-public:  
+public:
   // Initializes ThingsBoardSized class with network client.
-  inline ThingsBoardSized() { }
-  inline ThingsBoardSized(Client &client) :m_client(client) { }
+  inline ThingsBoardSized() {}
+  inline ThingsBoardSized(Client &client) : m_client(client) {}
 
   // Destroys ThingsBoardSized class with network client.
-  inline ~ThingsBoardSized() { }
+  inline ~ThingsBoardSized() {}
 
-  inline void setClient(Client &client) {
+  inline void setClient(Client &client)
+  {
     m_client.setClient(client);
   }
 
   // Connects to the specified ThingsBoard server and port.
   // Access token is used to authenticate a client.
   // Returns true on success, false otherwise.
-  bool connect(const char *host, const char *access_token, int port = 1883) {
-    if (!host || !access_token) {
+  bool connect(const char *host, const char *access_token, int port = 1883)
+  {
+    if (!host || !access_token)
+    {
       return false;
     }
     this->RPC_Unsubscribe(); // Cleanup any subscriptions
+    m_client.setBufferSize(Default_Payload);
     m_client.setServer(host, port);
     return m_client.connect(access_token, access_token, NULL);
   }
 
-  bool connect(IPAddress ip, const char *access_token, int port = 1883) {
-    if (!ip || !access_token) {
+  bool connect(IPAddress ip, const char *access_token, int port = 1883)
+  {
+    if (!ip || !access_token)
+    {
       return false;
     }
     this->RPC_Unsubscribe(); // Cleanup any subscriptions
+    m_client.setBufferSize(Default_Payload);
     m_client.setServer(ip, port);
     return m_client.connect(access_token, access_token, NULL);
   }
 
-  void state(){
+  void state()
+  {
     Serial.print(F("failed, rc="));
     Serial.println(m_client.state());
   }
 
   // Disconnects from ThingsBoard. Returns true on success.
-  inline void disconnect() {
+  inline void disconnect()
+  {
     m_client.disconnect();
   }
 
   // Returns true if connected, false otherwise.
-  inline bool connected() {
+  inline bool connected()
+  {
     return m_client.connected();
   }
 
   // Executes an event loop for PubSub client.
-  inline void loop() {
+  inline void loop()
+  {
     m_client.loop();
   }
 
@@ -185,36 +199,43 @@ public:
   // Telemetry API
 
   // Sends integer telemetry data to the ThingsBoard, returns true on success.
-  inline bool sendTelemetryInt(const char *key, int value) {
+  inline bool sendTelemetryInt(const char *key, int value)
+  {
     return sendKeyval(key, value);
   }
 
   // Sends boolean telemetry data to the ThingsBoard, returns true on success.
-  inline bool sendTelemetryBool(const char *key, bool value) {
+  inline bool sendTelemetryBool(const char *key, bool value)
+  {
     return sendKeyval(key, value);
   }
 
   // Sends float telemetry data to the ThingsBoard, returns true on success.
-  inline bool sendTelemetryFloat(const char *key, float value) {
+  inline bool sendTelemetryFloat(const char *key, float value)
+  {
     return sendKeyval(key, value);
   }
 
   // Sends string telemetry data to the ThingsBoard, returns true on success.
-  inline bool sendTelemetryString(const char *key, const char *value) {
+  inline bool sendTelemetryString(const char *key, const char *value)
+  {
     return sendKeyval(key, value);
   }
 
   // Sends aggregated telemetry to the ThingsBoard.
-  inline bool sendTelemetry(const Telemetry *data, size_t data_count) {
+  inline bool sendTelemetry(const Telemetry *data, size_t data_count)
+  {
     return sendDataArray(data, data_count);
   }
 
   // Sends custom JSON telemetry string to the ThingsBoard.
-  inline bool sendTelemetryJson(const char *json) {
+  inline bool sendTelemetryJson(const char *json)
+  {
     return m_client.publish("v1/devices/me/telemetry", json);
   }
 
-  inline bool sendTelemetryJson(const char *json, size_t n) {
+  inline bool sendTelemetryJson(const char *json, size_t n)
+  {
     return m_client.publish("v1/devices/me/telemetry", json, n);
   }
 
@@ -222,103 +243,127 @@ public:
   // Attribute API
 
   // Sends integer attribute with given name and value.
-  inline bool sendAttributeInt(const char *attrName, int value) {
+  inline bool sendAttributeInt(const char *attrName, int value)
+  {
     return sendKeyval(attrName, value, false);
   }
 
   // Sends boolean attribute with given name and value.
-  inline bool sendAttributeBool(const char *attrName, bool value) {
+  inline bool sendAttributeBool(const char *attrName, bool value)
+  {
     return sendKeyval(attrName, value, false);
   }
 
   // Sends float attribute with given name and value.
-  inline bool sendAttributeFloat(const char *attrName, float value) {
+  inline bool sendAttributeFloat(const char *attrName, float value)
+  {
     return sendKeyval(attrName, value, false);
   }
 
   // Sends string attribute with given name and value.
-  inline bool sendAttributeString(const char *attrName, const char *value) {
+  inline bool sendAttributeString(const char *attrName, const char *value)
+  {
     return sendKeyval(attrName, value, false);
   }
 
   // Sends aggregated attributes to the ThingsBoard.
-  inline bool sendAttributes(const Attribute *data, size_t data_count) {
+  inline bool sendAttributes(const Attribute *data, size_t data_count)
+  {
     return sendDataArray(data, data_count, false);
   }
 
   // Sends custom JSON with attributes to the ThingsBoard.
-  inline bool sendAttributeJSON(const char *json) {
+  inline bool sendAttributeJSON(const char *json)
+  {
     return m_client.publish("v1/devices/me/attributes", json);
   }
 
-  inline bool attributesRequestTopic(const char *json) {
+  inline bool attributesRequestTopic(const char *json)
+  {
     return m_client.publish("v1/devices/me/attributes/request/2", json);
   }
 
-  inline bool subscribeAttributesResponseTopic() {
-    return m_client.subscribe("v1/devices/me/attributes/response/+");    
+  inline bool subscribeAttributesResponseTopic()
+  {
+    return m_client.subscribe("v1/devices/me/attributes/response/+");
   }
 
-  inline bool subscribe(const char* name){
+  inline bool subscribe(const char *name)
+  {
     return m_client.subscribe(name);
   }
-  
-  #if defined(ESP8266) || defined(ESP32)
-  inline bool callback(MQTT_CALLBACK_SIGNATURE){
-    Serial.println(F("Set callback"));    
+
+  inline bool subscribeRPC()
+  {
+    return m_client.subscribe("v1/devices/me/rpc/request/+");
+  }
+
+#if defined(ESP8266) || defined(ESP32)
+  inline void callback(MQTT_CALLBACK_SIGNATURE)
+  {
+    Serial.println(F("Set callback"));
     m_client.setCallback(callback);
   }
-  #endif
+#endif
 
   //----------------------------------------------------------------------------
   // Server-side RPC API
 
   // Subscribes multiple RPC callbacks with given size
-  bool RPC_Subscribe(const RPC_Callback *callbacks, size_t callbacks_size) {
-    if (callbacks_size > sizeof(m_rpcCallbacks) / sizeof(*m_rpcCallbacks)) {
+  bool RPC_Subscribe(const RPC_Callback *callbacks, size_t callbacks_size)
+  {
+    if (callbacks_size > sizeof(m_rpcCallbacks) / sizeof(*m_rpcCallbacks))
+    {
       return false;
     }
-    if (ThingsBoardSized::m_subscribedInstance) {
+    if (ThingsBoardSized::m_subscribedInstance)
+    {
       return false;
     }
 
-    if (!m_client.subscribe("v1/devices/me/rpc/request/+")) {
+    if (!m_client.subscribe("v1/devices/me/rpc/request/+"))
+    {
       return false;
     }
 
     ThingsBoardSized::m_subscribedInstance = this;
 
-    for (size_t i = 0; i < callbacks_size; ++i) {
+    for (size_t i = 0; i < callbacks_size; ++i)
+    {
       m_rpcCallbacks[i] = callbacks[i];
     }
 
     m_client.setCallback(ThingsBoardSized::on_message);
 
     return true;
-}
+  }
 
-  inline bool RPC_Unsubscribe() {
+  inline bool RPC_Unsubscribe()
+  {
     ThingsBoardSized::m_subscribedInstance = NULL;
     return m_client.unsubscribe("v1/devices/me/rpc/request/+");
   }
 
 private:
   // Sends single key-value in a generic way.
-  template<typename T>
-  bool sendKeyval(const char *key, T value, bool telemetry = true) {
+  template <typename T>
+  bool sendKeyval(const char *key, T value, bool telemetry = true)
+  {
     Telemetry t(key, value);
 
     char payload[PayloadSize];
     {
       Telemetry t(key, value);
-      StaticJsonDocument<JSON_OBJECT_SIZE(1)>jsonBuffer;
+      StaticJsonDocument<JSON_OBJECT_SIZE(1)> jsonBuffer;
       JsonVariant object = jsonBuffer.template to<JsonVariant>();
-      if (t.serializeKeyval(object) == false){
+      if (t.serializeKeyval(object) == false)
+      {
         Logger::log("unable to serialize data");
         return false;
       }
 
-      if (measureJson(jsonBuffer) > PayloadSize - 1) {
+      if (measureJson(jsonBuffer) > PayloadSize - 1)
+      {
         Logger::log("too small buffer for JSON data");
         return false;
       }
@@ -328,12 +373,14 @@ private:
   }
 
   // Processes RPC message
-  void process_message(char* topic, uint8_t* payload, unsigned int length) {
+  void process_message(char *topic, uint8_t *payload, unsigned int length)
+  {
     RPC_Response r;
     {
       StaticJsonDocument<JSON_OBJECT_SIZE(MaxFieldsAmt)> jsonBuffer;
       DeserializationError error = deserializeJson(jsonBuffer, payload, length);
-      if (error) {
+      if (error)
+      {
         Logger::log("unable to de-serialize RPC");
         return;
       }
@@ -341,22 +388,28 @@ private:
 
       const char *methodName = data["method"];
 
-      if (methodName) {
+      if (methodName)
+      {
         Logger::log("received RPC:");
         Logger::log(methodName);
-      } else {
+      }
+      else
+      {
         Logger::log("RPC method is NULL");
         return;
       }
 
-      for (size_t i = 0; i < sizeof(m_rpcCallbacks) / sizeof(*m_rpcCallbacks); ++i) {
-        if (m_rpcCallbacks[i].m_cb && !strcmp(m_rpcCallbacks[i].m_name, methodName)) {
+      for (size_t i = 0; i < sizeof(m_rpcCallbacks) / sizeof(*m_rpcCallbacks); ++i)
+      {
+        if (m_rpcCallbacks[i].m_cb && !strcmp(m_rpcCallbacks[i].m_name, methodName))
+        {
 
           Logger::log("calling RPC:");
           Logger::log(methodName);
 
           // Do not inform client, if parameter field is missing for some reason
-          if (!data.containsKey("params")) {
+          if (!data.containsKey("params"))
+          {
             Logger::log("no parameters passed with RPC, passing null JSON");
           }
           // Getting non-existing field from JSON should automatically
@@ -372,12 +425,14 @@ private:
       StaticJsonDocument<JSON_OBJECT_SIZE(1)> respBuffer;
       JsonVariant resp_obj = respBuffer.template to<JsonVariant>();
 
-      if (r.serializeKeyval(resp_obj) == false) {
+      if (r.serializeKeyval(resp_obj) == false)
+      {
         Logger::log("unable to serialize data");
         return;
       }
 
-      if (measureJson(respBuffer) > PayloadSize - 1) {
+      if (measureJson(respBuffer) > PayloadSize - 1)
+      {
         Logger::log("too small buffer for JSON data");
         return;
       }
@@ -392,8 +447,10 @@ private:
   }
 
   // Sends array of attributes or telemetry to ThingsBoard
-  bool sendDataArray(const Telemetry *data, size_t data_count, bool telemetry = true) {
-    if (MaxFieldsAmt < data_count) {
+  bool sendDataArray(const Telemetry *data, size_t data_count, bool telemetry = true)
+  {
+    if (MaxFieldsAmt < data_count)
+    {
       Logger::log("too much JSON fields passed");
       return false;
     }
@@ -402,13 +459,16 @@ private:
       StaticJsonDocument<JSON_OBJECT_SIZE(MaxFieldsAmt)> jsonBuffer;
       JsonVariant object = jsonBuffer.template to<JsonVariant>();
 
-      for (size_t i = 0; i < data_count; ++i) {
-        if (data[i].serializeKeyval(object) == false) {
+      for (size_t i = 0; i < data_count; ++i)
+      {
+        if (data[i].serializeKeyval(object) == false)
+        {
           Logger::log("unable to serialize data");
           return false;
         }
       }
-      if (measureJson(jsonBuffer) > PayloadSize - 1) {
+      if (measureJson(jsonBuffer) > PayloadSize - 1)
+      {
         Logger::log("too small buffer for JSON data");
         return false;
       }
@@ -418,8 +478,8 @@ private:
     return telemetry ? sendTelemetryJson(payload) : sendAttributeJSON(payload);
   }
 
-  PubSubClient m_client;              // PubSub MQTT client instance.
-  RPC_Callback m_rpcCallbacks[8];     // RPC callbacks array
+  PubSubClient m_client;          // PubSub MQTT client instance.
+  RPC_Callback m_rpcCallbacks[8]; // RPC callbacks array
 
   // PubSub client cannot call a method when message arrives on subscribed topic.
   // Only free-standing function is allowed.
@@ -427,19 +487,21 @@ private:
   static ThingsBoardSized *m_subscribedInstance;
 
   // The callback for when a PUBLISH message is received from the server.
-  static void on_message(char* topic, uint8_t* payload, unsigned int length) {
-    if (!ThingsBoardSized::m_subscribedInstance) {
+  static void on_message(char *topic, uint8_t *payload, unsigned int length)
+  {
+    if (!ThingsBoardSized::m_subscribedInstance)
+    {
       return;
     }
-  
+
     ThingsBoardSized::m_subscribedInstance->process_message(topic, payload, length);
   }
 };
 
-template<size_t PayloadSize, size_t MaxFieldsAmt, typename Logger>
+template <size_t PayloadSize, size_t MaxFieldsAmt, typename Logger>
 ThingsBoardSized<PayloadSize, MaxFieldsAmt, Logger> *ThingsBoardSized<PayloadSize, MaxFieldsAmt, Logger>::m_subscribedInstance;
 
-#ifndef ESP8266
+#if !defined(ESP8266) && !defined(ESP32)
 
 // ThingsBoard HTTP client class
 template <size_t PayloadSize, size_t MaxFieldsAmt, typename Logger>
@@ -448,52 +510,59 @@ class ThingsBoardHttpSized
 public:
   // Initializes ThingsBoardHttpSized class with network client.
   inline ThingsBoardHttpSized(Client &client, const char *access_token,
-    const char *host, int port = 80)
-      :m_client(client, host, port)
-      ,m_host(host)
-      ,m_token(access_token)
-      ,m_port(port)
-       { }
+                              const char *host, int port = 80)
+      : m_client(client, host, port), m_host(host), m_token(access_token), m_port(port)
+  {
+  }
 
   // Destroys ThingsBoardHttpSized class with network client.
-  inline ~ThingsBoardHttpSized() { }
+  inline ~ThingsBoardHttpSized() {}
 
   //----------------------------------------------------------------------------
   // Telemetry API
 
   // Sends integer telemetry data to the ThingsBoard, returns true on success.
-  inline bool sendTelemetryInt(const char *key, int value) {
+  inline bool sendTelemetryInt(const char *key, int value)
+  {
     return sendKeyval(key, value);
   }
 
   // Sends boolean telemetry data to the ThingsBoard, returns true on success.
-  inline bool sendTelemetryBool(const char *key, bool value) {
+  inline bool sendTelemetryBool(const char *key, bool value)
+  {
     return sendKeyval(key, value);
   }
 
   // Sends float telemetry data to the ThingsBoard, returns true on success.
-  inline bool sendTelemetryFloat(const char *key, float value) {
+  inline bool sendTelemetryFloat(const char *key, float value)
+  {
     return sendKeyval(key, value);
   }
 
   // Sends string telemetry data to the ThingsBoard, returns true on success.
-  inline bool sendTelemetryString(const char *key, const char *value) {
+  inline bool sendTelemetryString(const char *key, const char *value)
+  {
     return sendKeyval(key, value);
   }
 
   // Sends aggregated telemetry to the ThingsBoard.
-  inline bool sendTelemetry(const Telemetry *data, size_t data_count) {
+  inline bool sendTelemetry(const Telemetry *data, size_t data_count)
+  {
     return sendDataArray(data, data_count);
   }
 
   // Sends custom JSON telemetry string to the ThingsBoard, using HTTP.
-  inline bool sendTelemetryJson(const char *json) {
-    if (!json || !m_token) {
-      return  false;
+  inline bool sendTelemetryJson(const char *json)
+  {
+    if (!json || !m_token)
+    {
+      return false;
     }
 
-    if (!m_client.connected()) {
-      if (!m_client.connect(m_host, m_port)) {
+    if (!m_client.connected())
+    {
+      if (!m_client.connect(m_host, m_port))
+      {
         Logger::log("connect to server failed");
         return false;
       }
@@ -503,7 +572,8 @@ public:
 
     String path = String("/api/v1/") + m_token + "/telemetry";
     if (!m_client.post(path, "application/json", json) ||
-        (m_client.responseStatusCode() != HTTP_SUCCESS)) {
+        (m_client.responseStatusCode() != HTTP_SUCCESS))
+    {
       rc = false;
     }
 
@@ -515,38 +585,47 @@ public:
   // Attribute API
 
   // Sends integer attribute with given name and value.
-  inline bool sendAttributeInt(const char *attrName, int value) {
+  inline bool sendAttributeInt(const char *attrName, int value)
+  {
     return sendKeyval(attrName, value, false);
   }
 
   // Sends boolean attribute with given name and value.
-  inline bool sendAttributeBool(const char *attrName, bool value) {
+  inline bool sendAttributeBool(const char *attrName, bool value)
+  {
     return sendKeyval(attrName, value, false);
   }
 
   // Sends float attribute with given name and value.
-  inline bool sendAttributeFloat(const char *attrName, float value) {
+  inline bool sendAttributeFloat(const char *attrName, float value)
+  {
     return sendKeyval(attrName, value, false);
   }
 
   // Sends string attribute with given name and value.
-  inline bool sendAttributeString(const char *attrName, const char *value) {
+  inline bool sendAttributeString(const char *attrName, const char *value)
+  {
     return sendKeyval(attrName, value, false);
   }
 
   // Sends aggregated attributes to the ThingsBoard.
-  inline bool sendAttributes(const Attribute *data, size_t data_count) {
+  inline bool sendAttributes(const Attribute *data, size_t data_count)
+  {
     return sendDataArray(data, data_count, false);
   }
 
   // Sends custom JSON with attributes to the ThingsBoard, using HTTP.
-  inline bool sendAttributeJSON(const char *json) {
-    if (!json || !m_token) {
-      return  false;
+  inline bool sendAttributeJSON(const char *json)
+  {
+    if (!json || !m_token)
+    {
+      return false;
     }
 
-    if (!m_client.connected()) {
-      if (!m_client.connect(m_host, m_port)) {
+    if (!m_client.connected())
+    {
+      if (!m_client.connect(m_host, m_port))
+      {
         Logger::log("connect to server failed");
         return false;
       }
@@ -555,8 +634,8 @@ public:
     bool rc = true;
 
     String path = String("/api/v1/") + m_token + "/attributes";
-    if (!m_client.post(path, "application/json", json)
-          || (m_client.responseStatusCode() != HTTP_SUCCESS)) {
+    if (!m_client.post(path, "application/json", json) || (m_client.responseStatusCode() != HTTP_SUCCESS))
+    {
       rc = false;
     }
 
@@ -566,8 +645,10 @@ public:
 
 private:
   // Sends array of attributes or telemetry to ThingsBoard
-  bool sendDataArray(const Telemetry *data, size_t data_count, bool telemetry = true) {
-    if (MaxFieldsAmt < data_count) {
+  bool sendDataArray(const Telemetry *data, size_t data_count, bool telemetry = true)
+  {
+    if (MaxFieldsAmt < data_count)
+    {
       Logger::log("too much JSON fields passed");
       return false;
     }
@@ -576,14 +657,17 @@ private:
       StaticJsonDocument<JSON_OBJECT_SIZE(MaxFieldsAmt)> jsonBuffer;
       JsonVariant object = jsonBuffer.template to<JsonVariant>();
 
-      for (size_t i = 0; i < data_count; ++i) {
-        if (data[i].serializeKeyval(object) == false) {
+      for (size_t i = 0; i < data_count; ++i)
+      {
+        if (data[i].serializeKeyval(object) == false)
+        {
           Logger::log("unable to serialize data");
           return false;
         }
       }
 
-      if (measureJson(jsonBuffer) > PayloadSize - 1) {
+      if (measureJson(jsonBuffer) > PayloadSize - 1)
+      {
         Logger::log("too small buffer for JSON data");
         return false;
       }
@@ -591,11 +675,12 @@ private:
     }
 
     return telemetry ? sendTelemetryJson(payload) : sendAttributeJSON(payload);
-}
+  }
 
   // Sends single key-value in a generic way.
-  template<typename T>
-  bool sendKeyval(const char *key, T value, bool telemetry = true) {
+  template <typename T>
+  bool sendKeyval(const char *key, T value, bool telemetry = true)
+  {
     Telemetry t(key, value);
 
     char payload[PayloadSize];
@@ -603,12 +688,14 @@ private:
       Telemetry t(key, value);
       StaticJsonDocument<JSON_OBJECT_SIZE(1)> jsonBuffer;
       JsonVariant object = jsonBuffer.template to<JsonVariant>();
-      if (t.serializeKeyval(object) == false) {
+      if (t.serializeKeyval(object) == false)
+      {
         Logger::log("unable to serialize data");
         return false;
       }
 
-      if (measureJson(jsonBuffer) > PayloadSize - 1) {
+      if (measureJson(jsonBuffer) > PayloadSize - 1)
+      {
         Logger::log("too small buffer for JSON data");
         return false;
       }
